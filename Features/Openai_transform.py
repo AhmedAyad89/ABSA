@@ -12,13 +12,11 @@ def openai_transform(json_dict, field_name):
 
 	features = []
 	for i in sorted(json_dict):
-		# print(i, '-', json_dict[i],'-', json_dict[i][field_name])
 		features.append(json_dict[i][field_name])
 
 	vecs = model.transform(features)
 
 	for counter, key in enumerate(sorted(json_dict)):
-		# print(i, '-', json_dict[i],'-', json_dict[i][field_name])
 		json_dict[key][field_name+'-openai_vec'] = vecs[counter].tolist()
 
 	return json_dict

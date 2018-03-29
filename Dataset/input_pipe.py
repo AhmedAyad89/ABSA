@@ -1,13 +1,13 @@
 import json
-from dataset_utils import *
+from Dataset.dataset_utils import *
 from itertools import compress
 
 #read the dataset, gets the text and labels
 #encodes the labels
 def prep_semeval_aspects(domain='laptop', single=False):
 
-	train_path = 'Semeval_'+domain+'_train.json'
-	test_path = 'Semeval_'+domain+'_test.json'
+	train_path = 'Dataset/Semeval_'+domain+'_train.json'
+	test_path = 'Dataset/Semeval_'+domain+'_test.json'
 	with open(train_path, 'r') as infile:
 		train_data = json.load(infile)
 	with open(test_path, 'r') as infile:
@@ -34,7 +34,7 @@ def prep_semeval_aspects(domain='laptop', single=False):
 	dict['label_encoder'] = encoder
 	return dict
 
-def get_labels(train_data, single=False, test_data = None, subtask = [True, True, False]):
+def get_labels(train_data, single=False, test_data=None, subtask=[True, True, False]):
 	print('getting labels')
 	train_labels = [x['label'] for x in train_data.values()]
 	if test_data is not None:
@@ -48,7 +48,7 @@ def get_labels(train_data, single=False, test_data = None, subtask = [True, True
 		for i in range(len(test_labels)):
 			test_labels[i] = test_labels[i][0]
 	else:
-		irrelevant =( [['NA', 'NA', 'NA']], [['not relevant', 'not relevant', 'not relevant']], [['relevant', 'relevant', 'relevant']])
+		irrelevant = ([['NA', 'NA', 'NA']], [['not relevant', 'not relevant', 'not relevant']], [['relevant', 'relevant', 'relevant']])
 		for i in range(len(train_labels)):
 			if train_labels[i] in irrelevant:
 				train_labels[i] = []
