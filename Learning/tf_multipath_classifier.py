@@ -12,7 +12,6 @@ def dataset_generator(dataset, holdout=None):
 		def train_gen():
 			for i in range(length):
 				if (i in p):
-					# print(i)
 					continue
 				labels = [x['features'][i] for x in dataset['tasks']]
 				if (isinstance(dataset['features'][i], str)):
@@ -97,10 +96,7 @@ def build_tf_dataset(datasets, sess):
 				gen = dataset_generator(dataset)
 
 			d = tf.data.Dataset.from_generator(gen, output_types=tuple(types))
-			d = d.shuffle(buffer_size=1000)
-			# d = d.batch(batch_size)
-			# d = d.repeat()
-			# d = d.prefetch(1500)
+			# d = d.shuffle(buffer_size=1000)
 
 			with tf.name_scope('features'):
 				d_feat = d.map(lambda *x: x[0], num_parallel_calls=8).cache()
@@ -272,7 +268,7 @@ class TfMultiPathClassifier():
 	def save(self):
 		writer = tf.summary.FileWriter(os.path.join(self.mydir, 'graph'))
 		writer.add_graph(self.sess.graph)
-
+		saver = tf.train.Saver()
 
 	def get_raw_prediciton(self, pathname, input):
 		gen = inference_generator(input)

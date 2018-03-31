@@ -37,9 +37,9 @@ def construct_path(name, layers, batch_norm=False, dropout=False, dropout_rate=0
 					tmp = tf.cond(phase, lambda: tf.add(tmp, add), lambda: tmp)
 				if dropout:
 					tmp = tf.layers.dropout(tmp, rate=dropout_rate, training=phase)
-					tmp = tf.cond(phase, lambda: tmp, lambda: tf.scalar_mul(1-dropout_rate, tmp))
+					# tmp = tf.cond(phase, lambda: tmp, lambda: tf.scalar_mul(1-dropout_rate, tmp))
 				tmp = tf.layers.dense(tmp, layer, activation=None, name=str(num),
-															kernel_regularizer= ker_reg, reuse=tf.AUTO_REUSE)
+															kernel_regularizer= ker_reg, reuse=tf.AUTO_REUSE, kernel_initializer=tf.contrib.layers.xavier_initializer() )
 				if batch_norm:
 					tmp = tf.layers.batch_normalization(tmp, training=True)
 				if activation is not None:
