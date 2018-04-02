@@ -15,7 +15,7 @@ def loss_exec(loss_fn):
 def loss_map(type, weight=1):
 	if type == 'softmax':
 		def fn(pred, labels):
-			i = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=labels) )
+			i = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits_v2(logits=pred, labels=labels) )
 			return i * weight
 	if type == 'sigmoid':
 		def fn(pred, labels):

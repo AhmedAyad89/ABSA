@@ -1,6 +1,12 @@
 import json
+import pickle
 from Dataset.dataset_utils import *
 from itertools import compress
+from os import path
+from math import ceil
+import numpy as np
+from Features.Openai_transform import *
+
 
 #read the dataset, gets the text and labels
 #encodes the labels
@@ -12,7 +18,6 @@ def prep_semeval_aspects(domain='laptop', single=False, extra_train_features=Non
 		train_data = json.load(infile)
 	with open(test_path, 'r') as infile:
 		test_data = json.load(infile)
-
 
 	size = len(train_data)
 	train_data = [train_data[str(x)] for x in range(size)]
@@ -64,7 +69,7 @@ def get_labels(train_data, single=False, test_data=None, subtask=[True, True, Fa
 				test_labels[i] = []
 
 	encoded_labels, encoder, labeling = encode_labels \
-		(labels=train_labels + test_labels, scheme=[True, True, False])
+		(labels=train_labels + test_labels, scheme=subtask)
 	encoded_train_labels = encoded_labels[:len(train_labels)]
 	encoded_test_labels = encoded_labels[len(train_labels):]
 
@@ -87,7 +92,7 @@ def get_labels(train_data, single=False, test_data=None, subtask=[True, True, Fa
 		train_labels = new_train
 		test_labels = new_test
 
-		return train_labels, encoded_train_labels, test_labels, encoded_test_labels, encoder, labeling
+	return train_labels, encoded_train_labels, test_labels, encoded_test_labels, encoder, labeling
 
 def load_extra_features(train_feat, test_feat, train_vecs, test_vecs):
 	for file in train_feat:
@@ -101,6 +106,123 @@ def load_extra_features(train_feat, test_feat, train_vecs, test_vecs):
 
 	return train_vecs, test_vecs
 
+def read_sentiment_file(data_path, pickle_path, labeling=None, encoder=None):
+	with open(data_path, 'r') as infile:
+		data = json.load(infile)
+
+	size = len(data)
+	train_data = [data[str(x)] for x in range(size)]
+
+	train_text = [x['sentence'] for x in train_data]
+	train_labels = [x['label'] for x in train_data]
+
+	train_text, train_labels = merge_sentence_with_aspect(train_text, train_labels)
+
+	encoded_labels, encoder, labeling = encode_labels \
+		(labels=train_labels, scheme=[True], labeling=labeling, encoder=encoder)
+
+	#The training vectors are loaded from pickle files to save time, they are the openAI transforms of the train/test text
+	basepath = path.dirname(__file__)
+	filepath = path.abspath(path.join(basepath, "..",pickle_path))
+	with open(filepath, 'rb') as infile:
+		train_vecs = pickle.load(infile)
+	return train_text, train_vecs, train_labels, encoded_labels, encoder, labeling
+
+def prep_sentiment(domain, test_set_partition = None):
+	if domain in ['laptop', 'restaurant']:
+		train_path = 'Dataset/Semeval_' + domain + '_train.json'
+		test_path = 'Dataset/Semeval_' + domain + '_test.json'
+		train_feats =  "Features/sentiment_transforms/semeval_"+domain+"-sent-openAI-data"
+		test_feats = "Features/sentiment_transforms/semeval_"+domain+"-sent_test-openAI-data"
+	elif domain == 'organic':
+		train_path = 'Dataset/Organic_train_test.json'
+		train_feats = 'Features/sentiment_transforms/organic_sent_merged_openAI-data'
+	else:
+		print('domain invalid')
+		return 0
+
+	train_text, train_vecs, train_labels, encoded_train_labels, encoder, labeling= \
+		read_sentiment_file(train_path, train_feats)
+
+	if domain in ['laptop', 'restaurant']:
+		test_text, test_vecs, test_labels, encoded_test_labels, _, _ = \
+			read_sentiment_file(test_path, test_feats, labeling, encoder)
+	elif test_set_partition is not None:
+		dataset_size = len(train_text)
+		test_size = ceil(test_set_partition * dataset_size)
+		test_idx =  np.random.randint(0,dataset_size, test_size)
+		final_train_text = []
+		final_train_labels = []
+		final_train_vecs = []
+		final_encoded_train_labels = []
+		test_text = []
+		test_labels=[]
+		test_vecs=[]
+		encoded_test_labels=[]
+		for i in range(dataset_size):
+			if i in test_idx:
+				test_text.append(train_text[i])
+				test_vecs.append(train_vecs[i])
+				encoded_test_labels.append(encoded_train_labels[i])
+				test_labels.append(train_labels[i])
+			else:
+				final_train_text.append(train_text[i])
+				final_train_labels.append(train_labels[i])
+				final_encoded_train_labels.append(encoded_train_labels[i])
+				final_train_vecs.append(train_vecs[i])
+		train_labels = final_train_labels
+		train_vecs = final_train_vecs
+		encoded_train_labels = final_encoded_train_labels
+		train_text = final_train_text
+
+	dict = {}
+	dict['train_data'] = train_text
+	dict['train_labels'] = train_labels
+	dict['train_vecs'] = train_vecs
+	dict['encoded_train_labels'] = np.asarray(encoded_train_labels)
+	dict['labeling'] = labeling
+	dict['label_encoder'] = encoder
+	if domain in ['laptop', 'restaurant'] or test_set_partition is not None:
+		dict['test_data'] = test_text
+		dict['test_labels'] = test_labels
+		dict['test_vecs'] = test_vecs
+		dict['encoded_test_labels'] = np.asarray(encoded_test_labels)
+	return dict
+
+def	merge_sentence_with_aspect(train_sentences, train_labels, test_sentences=None, test_labels=None):
+	new_data = []
+	new_labels = []
+	for i, sentence in enumerate(train_sentences):
+		for label in train_labels[i]:
+			if 'NA' in label or 'relevant' in label or 'not relevant' in label:
+				continue
+			l =  ' '.join(label[:2])
+			l = l.lower()
+			l = l.replace('_', ' ')
+			new_data.append(sentence +' '+ l)
+			new_labels.append(label[2:])
+	train_data = new_data
+	train_labels = new_labels
+
+
+	return train_data, train_labels
+
+def create_sentiment_features(data_path, out_path, label='label'):
+	with open(data_path, 'r') as infile:
+		data = json.load(infile)
+
+	size = len(data)
+	train_data = [data[str(x)] for x in range(size)]
+	train_text = [x['sentence'] for x in train_data]
+	train_labels = [x[label] for x in train_data]
+	train_text, train_labels = merge_sentence_with_aspect(train_text, train_labels)
+
+	train_vecs = openai_sentence_transform(train_text)
+
+	with open(out_path, 'wb') as outfile:
+		pickle.dump(train_vecs, outfile)
 
 if __name__ == '__main__':
-	prep_semeval_aspects()
+	basepath = path.dirname(__file__)
+	filepath = path.abspath(path.join(basepath, "..",'Features/sentiment_transforms/organic_sent_merged_openAI-data'))
+	create_sentiment_features('Organic_train_test.json', filepath, label='merged_label' )

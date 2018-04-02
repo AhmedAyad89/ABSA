@@ -96,7 +96,7 @@ def build_tf_dataset(datasets, sess):
 				gen = dataset_generator(dataset)
 
 			d = tf.data.Dataset.from_generator(gen, output_types=tuple(types))
-			# d = d.shuffle(buffer_size=1000)
+			d = d.shuffle(buffer_size=1000)
 
 			with tf.name_scope('features'):
 				d_feat = d.map(lambda *x: x[0], num_parallel_calls=8).cache()
