@@ -18,7 +18,7 @@ def config_graph():
 	path['input'] = 'shared1'
 	path['input_dim'] = 512
 	path['computation'] = construct_path(path['name'], [12], batch_norm=False, activation=None)
-	path['optimizer'] = tf.train.AdamOptimizer(name='optimizer', learning_rate=0.0001 , beta1=0.85 , beta2=0.995)
+	path['optimizer'] = tf.train.AdamOptimizer(name='optimizer', learning_rate=0.0001 , beta1=0.92 , beta2=0.995)
 	path['loss'] = loss_map('sigmoid')
 	path['predictor'] = sigmoid_predictor()
 	paths.append(path)
@@ -37,7 +37,7 @@ datasets = []
 dataset = {}
 dataset['name'] = 'semeval_restaurant'
 # dataset['holdout'] = 100
-dataset['batch_size'] = 250
+dataset['batch_size'] = 300
 dataset['features'] = rest_dict['train_vecs']
 dataset['type'] = tf.float32
 dataset['tasks'] = [{'name' : 'aspects', 'features' : rest_dict['encoded_train_labels'], 'type': tf.float32}]

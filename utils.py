@@ -34,6 +34,7 @@ def multi_label_metrics(pred, labels, encoded_labels, labeling, data, mute=True)
 		# print('recall samples', metrics.recall_score(encoded_labels, pred, average='samples'))
 		print('accuracy', metrics.accuracy_score(encoded_labels, pred))
 		acc = metrics.accuracy_score(encoded_labels, pred)
+		f1 = metrics.f1_score(encoded_labels, pred, average='micro')
 	except Exception as e:
 		print('accuracy', metrics.accuracy_score(encoded_labels, pred))
 		print(e)
@@ -52,7 +53,7 @@ def multi_label_metrics(pred, labels, encoded_labels, labeling, data, mute=True)
 			print('Prediction: ',  [labeling[x] for x in decoded_pred[i]] )
 			print('Label: ', labels[i])
 			print('\n', '\n--------------------------\n')
-	return acc
+	return acc, f1
 
 
 def print_raw_predictions(pred, labels, encoded_labels, labeling, data, mute=True):

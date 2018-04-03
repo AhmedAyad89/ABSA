@@ -7,17 +7,17 @@ def config_graph():
 	paths = []
 
 	path = {}
-	path['input_dim'] = 4127
+	path['input_dim'] = 4116
 	path['name'] = 'shared1'
-	path['computation'] = construct_path(path['name'], [512, 512], batch_norm=False, dropout=True, dropout_rate=0.4, noise=False, noise_std=0.16)
-	path['input'] = 'semeval_laptop'
+	path['computation'] = construct_path(path['name'], [512, 512], batch_norm=False, dropout=True, dropout_rate=0.5, noise=False, noise_std=0.16)
+	path['input'] = 'organic'
 	paths.append(path)
 
 	path = {}
 	path['name'] = 'aspects'
 	path['input'] = 'shared1'
 	path['input_dim'] = 512
-	path['computation'] = construct_path(path['name'], [88], batch_norm=False, activation=None)
+	path['computation'] = construct_path(path['name'], [11], batch_norm=False, activation=None)
 	path['optimizer'] = tf.train.AdamOptimizer(name='optimizer', learning_rate=0.0001 , beta1=0.92 , beta2=0.9999)
 	path['loss'] = loss_map('sigmoid')
 	path['predictor'] = sigmoid_predictor()
@@ -25,38 +25,47 @@ def config_graph():
 
 	return paths
 
-#These features are obtained by training a classifier to predict attribute/entity separately,
-#its predictions are then usedd as input features to the final aspect classifier
-extra_train = ['Features/pred_features/lap_attrs_train_predictions_67',
-							 'Features/pred_features/lap_entities_train_predictions_67']
-extra_test = ['Features/pred_features/lap_attrs_test_predictions_67',
-							'Features/pred_features/lap_entities_test_predictions_67']
-lap_dict = prep_semeval_aspects(domain='laptop', extra_train_features=extra_train, extra_test_features=extra_test)
 
-datasets = []
-dataset = {}
-dataset['name'] = 'semeval_laptop'
-# dataset['holdout'] = 200
-dataset['batch_size'] = 700
-dataset['features'] = lap_dict['train_vecs']
-dataset['type'] = tf.float32
-dataset['tasks'] = [{'name' : 'aspects', 'features' : lap_dict['encoded_train_labels'], 'type': tf.float32}]
-datasets.append(dataset)
+org_dict_full = prep_organic_aspects()
+dataset_size = len(org_dict_full['train_data'])
 
-paths = config_graph()
-params = {}
-params['train_iter'] = 2750
+folds = 10
+fold_size= ceil(dataset_size / folds)
+avg_f1 = 0
+for f in range(0,folds):
+	fold_start = f * fold_size
+	fold_end = min((f+1) * fold_size, dataset_size )
+	print(fold_start, fold_end)
+	org_dict = fold_data_dict(org_dict_full, fold_start, fold_end )
 
-model = TfMultiPathClassifier(datasets, paths, params)
+	datasets = []
+	dataset = {}
+	dataset['name'] = 'organic'
+	# dataset['holdout'] = 50
+	dataset['batch_size'] = 10
+	dataset['features'] = org_dict['train_vecs']
+	dataset['type'] = tf.float32
+	dataset['tasks'] = [{'name' : 'aspects', 'features' : org_dict['encoded_train_labels'], 'type': tf.float32}]
+	datasets.append(dataset)
 
-model.train()
-model.save()
+	paths = config_graph()
+	params = {}
+	params['train_iter'] = 4001
 
-y = model.get_prediciton('aspects', lap_dict['test_vecs'])
-x = model.get_prediciton('aspects', lap_dict['train_vecs'])
+	model = TfMultiPathClassifier(datasets, paths, params)
 
-multi_label_metrics(x, lap_dict['train_labels'], lap_dict['encoded_train_labels'],
-										lap_dict['labeling'], lap_dict['train_data'] )
+	model.train()
+	model.save()
 
-multi_label_metrics(y, lap_dict['test_labels'], lap_dict['encoded_test_labels'],
-										lap_dict['labeling'], lap_dict['test_data'], mute=False )
+	y = model.get_prediciton('aspects', org_dict['test_vecs'])
+	x = model.get_prediciton('aspects', org_dict['train_vecs'])
+
+	multi_label_metrics(x, org_dict['train_labels'], org_dict['encoded_train_labels'],
+											org_dict['labeling'], org_dict['train_data'] )
+
+	_, f1 = multi_label_metrics(y, org_dict['test_labels'], org_dict['encoded_test_labels'],
+											org_dict['labeling'], org_dict['test_data'], mute=True )
+	avg_f1 +=f1
+
+avg_f1 = avg_f1 / folds
+print('\n--------------------------------------------------------------------------\nAverage F1 score:', avg_f1)

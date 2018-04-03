@@ -29,8 +29,6 @@ def config_graph():
 organic_dict_full = prep_sentiment(domain='organic', test_set_partition=None)
 
 dataset_size = len(organic_dict_full['train_data'])
-print(dataset_size)
-
 folds = 7
 fold_size= ceil(dataset_size / 7)
 avg_acc = 0
@@ -63,7 +61,8 @@ for f in range(0,folds):
 
 
 	multi_label_metrics(y, organic_dict['train_labels'], organic_dict['encoded_train_labels'], organic_dict['labeling'], organic_dict['train_data'])
-	avg_acc += multi_label_metrics(x, organic_dict['test_labels'], organic_dict['encoded_test_labels'], organic_dict['labeling'], organic_dict['test_data'], mute=True)
+	acc,_ = multi_label_metrics(x, organic_dict['test_labels'], organic_dict['encoded_test_labels'], organic_dict['labeling'], organic_dict['test_data'], mute=True)
+	avg_acc += acc
 
 avg_acc = avg_acc / folds
 

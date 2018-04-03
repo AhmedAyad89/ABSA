@@ -6,6 +6,7 @@ from os import path
 from math import ceil
 import numpy as np
 from Features.Openai_transform import *
+from Features.bag_of_words import *
 
 
 #read the dataset, gets the text and labels
@@ -28,7 +29,7 @@ def prep_semeval_aspects(domain='laptop', single=False, extra_train_features=Non
 	train_vecs =  [x['sentence-openai_vec'] for x in train_data]
 	test_vecs = [x['sentence-openai_vec'] for x in test_data]
 	
-	train_vecs, test_vecs = load_extra_features(extra_train_features, extra_test_features, train_vecs, test_vecs)
+	train_vecs, test_vecs = load_extra_features(extra_train_features, train_vecs, extra_test_features, test_vecs)
 
 	train_labels, encoded_train_labels, test_labels, encoded_test_labels, encoder, labeling = \
 		get_labels(train_data=train_data, test_data=test_data, single=single, subtask=[True, True, False])
@@ -46,11 +47,50 @@ def prep_semeval_aspects(domain='laptop', single=False, extra_train_features=Non
 	dict['label_encoder'] = encoder
 	return dict
 
-def get_labels(train_data, single=False, test_data=None, subtask=[True, True, False]):
+def prep_organic_aspects(single=False, rel_filter=True, bow_features=True, merged=True, extra_features=None):
+	train_path = 'Dataset/Organic_train_test.json'
+	with open(train_path, 'r') as infile:
+		train_data = json.load(infile)
+
+	size = len(train_data)
+	train_data = [train_data[str(x)] for x in range(size)]
+	if rel_filter:
+		irrelevant = ([['not relevant', 'not relevant', 'not relevant']], [['relevant', 'relevant', 'relevant']])
+		train_data = [x for x in train_data if x['label'] not in irrelevant ]
+		print('remaining ',len(train_data))
+	train_text = [x['sentence'] for x in train_data]
+	train_vecs = [x['sentence-openai_vec'] for x in train_data]
+
+	if extra_features is not None:
+		train_vecs, _= load_extra_features(extra_features, train_vecs)
+
+	if bow_features:
+		features = bow_clusters_features(data = train_text)
+		train_vecs = np.concatenate((train_vecs, features), axis=1)
+
+	label = 'label'
+	if merged:
+		label = 'merged_label'
+	train_labels, encoded_train_labels, test_labels, encoded_test_labels, encoder, labeling = \
+		get_labels(train_data=train_data, test_data=None, single=single,  subtask=[True, True, False], label=label)
+
+	dict = {}
+	dict['train_data'] = train_text
+	dict['train_labels'] = train_labels
+	dict['train_vecs'] = train_vecs
+	dict['encoded_train_labels'] = encoded_train_labels
+	dict['test_labels'] = test_labels
+	dict['encoded_test_labels'] = encoded_test_labels
+	dict['labeling'] = labeling
+	dict['label_encoder'] = encoder
+	return dict
+
+
+def get_labels(train_data, single=False, test_data=None, subtask=[True, True, False], label='label'):
 	print('getting labels')
-	train_labels = [x['label'] for x in train_data]
+	train_labels = [x[label] for x in train_data]
 	if test_data is not None:
-		test_labels = [x['label'] for x in test_data]
+		test_labels = [x[label] for x in test_data]
 	else:
 		test_labels = []
 
@@ -94,15 +134,16 @@ def get_labels(train_data, single=False, test_data=None, subtask=[True, True, Fa
 
 	return train_labels, encoded_train_labels, test_labels, encoded_test_labels, encoder, labeling
 
-def load_extra_features(train_feat, test_feat, train_vecs, test_vecs):
+def load_extra_features(train_feat, train_vecs, test_feat=None, test_vecs=None):
 	for file in train_feat:
 		with open(file, 'rb') as infile:
 			features = pickle.load(infile)
 			train_vecs = np.concatenate((train_vecs, features), axis=1)
-	for file in test_feat:
-		with open(file, 'rb') as infile:
-			features = pickle.load(infile)
-			test_vecs = np.concatenate((test_vecs, features), axis=1)
+	if test_feat is not None:
+		for file in test_feat:
+			with open(file, 'rb') as infile:
+				features = pickle.load(infile)
+				test_vecs = np.concatenate((test_vecs, features), axis=1)
 
 	return train_vecs, test_vecs
 
